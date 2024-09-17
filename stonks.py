@@ -165,52 +165,102 @@ if st.session_state.current_portfolio == "All":
             "Total Cost": f"${performance['total_cost']:,.2f}"
         })
     
-summary_df = pd.DataFrame(summary_data)
-summary_df = summary_df.set_index('Portfolio')
-st.table(summary_df)
-
-# Create a line chart comparing all portfolio performances with S&P 500
-fig = go.Figure()
-for portfolio_name, performance in portfolio_performances.items():
-    fig.add_trace(go.Scatter(x=performance['returns'].index, y=performance['returns'], name=portfolio_name, mode='lines'))
-
-# Add S&P 500 to the chart
-fig.add_trace(go.Scatter(x=sp500_data.index, y=sp500_data / sp500_data.iloc[0] * 100000, name='S&P 500', mode='lines', line=dict(dash='dash')))
-
-fig.update_layout(
-    title="Portfolio Performance Comparison (Normalized)",
-    xaxis_title="Date",
-    yaxis_title="Normalized Value",
-    legend_title="Portfolios",
-    hovermode="x unified"
-)
-st.plotly_chart(fig, use_container_width=True)
-
-# Calculate and display correlation with S&P 500
-st.subheader("Correlation with S&P 500")
-correlations = {}
-for portfolio_name, performance in portfolio_performances.items():
-    correlation = performance['returns_pct'].corr(sp500_data.pct_change())
-    correlations[portfolio_name] = correlation
-
-correlation_df = pd.DataFrame.from_dict(correlations, orient='index', columns=['Correlation'])
-correlation_df = correlation_df.sort_values('Correlation', ascending=False)
-st.table(correlation_df)
-
-# Display individual portfolio details
-for portfolio_name, performance in portfolio_performances.items():
-    with st.expander(f"{portfolio_name} Details"):
-        st.write(f"Total Value: ${performance['total_value']:,.2f}")
-        st.write(f"Total Return: {performance['total_return']:.2f}%")
-        st.write(f"Correlation with S&P 500: {correlations[portfolio_name]:.4f}")
+# Main content
+if st.session_state.current_portfolio == "All":
+    st.subheader("All Portfolios Overview")
+    
+    # Fetch S&P 500 data
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=365)
+    sp500_data = get_sp500_data(start_date, end_date)
+    
+    # Calculate performance for each portfolio
+    portfolio_performances = {}
+    for portfolio_name, portfolio in st.session_state.portfolios.items():
+        if not portfolio:  # Skip empty portfolios
+            continue
         
-        # Portfolio composition pie chart
-        portfolio = st.session_state.portfolios[portfolio_name]
-        portfolio_composition = {stock: details['shares'] * performance['returns'].iloc[-1] for stock, details in portfolio.items()}
-        fig = px.pie(values=list(portfolio_composition.values()), names=list(portfolio_composition.keys()), title=f"{portfolio_name} Composition")
-        st.plotly_chart(fig, use_container_width=True)
+        portfolio_data = {}
+        for stock in portfolio:
+            data = yf.download(stock, start=start_date, end=end_date)
+            portfolio_data[stock] = data['Close']
+        
+        df = pd.DataFrame(portfolio_data)
+        
+        # Calculate portfolio value over time
+        portfolio_value = sum(df.iloc[-1] * pd.Series({stock: details['shares'] for stock, details in portfolio.items()}))
+        portfolio_cost = sum(details['shares'] * details['purchase_price'] for details in portfolio.values())
+        
+        # Calculate portfolio returns
+        portfolio_returns = (df * pd.Series({stock: details['shares'] for stock, details in portfolio.items()})).sum(axis=1)
+        portfolio_returns_pct = portfolio_returns.pct_change()
+        
+        portfolio_performances[portfolio_name] = {
+            'returns': portfolio_returns,
+            'returns_pct': portfolio_returns_pct,
+            'total_value': portfolio_value,
+            'total_cost': portfolio_cost,
+            'total_return': (portfolio_value - portfolio_cost) / portfolio_cost * 100
+        }
+    
+    # Display summary metrics for all portfolios
+    st.subheader("Portfolio Summary")
+    summary_data = []
+    for portfolio_name, performance in portfolio_performances.items():
+        summary_data.append({
+            "Portfolio": portfolio_name,
+            "Total Value": f"${performance['total_value']:,.2f}",
+            "Total Return": f"{performance['total_return']:.2f}%",
+            "Total Cost": f"${performance['total_cost']:,.2f}"
+        })
+    
+    summary_df = pd.DataFrame(summary_data)
+    summary_df = summary_df.set_index('Portfolio')
+    st.table(summary_df)
+
+    # Create a line chart comparing all portfolio performances with S&P 500
+    fig = go.Figure()
+    for portfolio_name, performance in portfolio_performances.items():
+        fig.add_trace(go.Scatter(x=performance['returns'].index, y=performance['returns'], name=portfolio_name, mode='lines'))
+
+    # Add S&P 500 to the chart
+    fig.add_trace(go.Scatter(x=sp500_data.index, y=sp500_data / sp500_data.iloc[0] * 100000, name='S&P 500', mode='lines', line=dict(dash='dash')))
+
+    fig.update_layout(
+        title="Portfolio Performance Comparison (Normalized)",
+        xaxis_title="Date",
+        yaxis_title="Normalized Value",
+        legend_title="Portfolios",
+        hovermode="x unified"
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Calculate and display correlation with S&P 500
+    st.subheader("Correlation with S&P 500")
+    correlations = {}
+    for portfolio_name, performance in portfolio_performances.items():
+        correlation = performance['returns_pct'].corr(sp500_data.pct_change())
+        correlations[portfolio_name] = correlation
+
+    correlation_df = pd.DataFrame.from_dict(correlations, orient='index', columns=['Correlation'])
+    correlation_df = correlation_df.sort_values('Correlation', ascending=False)
+    st.table(correlation_df)
+
+    # Display individual portfolio details
+    for portfolio_name, performance in portfolio_performances.items():
+        with st.expander(f"{portfolio_name} Details"):
+            st.write(f"Total Value: ${performance['total_value']:,.2f}")
+            st.write(f"Total Return: {performance['total_return']:.2f}%")
+            st.write(f"Correlation with S&P 500: {correlations[portfolio_name]:.4f}")
+            
+            # Portfolio composition pie chart
+            portfolio = st.session_state.portfolios[portfolio_name]
+            portfolio_composition = {stock: details['shares'] * performance['returns'].iloc[-1] for stock, details in portfolio.items()}
+            fig = px.pie(values=list(portfolio_composition.values()), names=list(portfolio_composition.keys()), title=f"{portfolio_name} Composition")
+            st.plotly_chart(fig, use_container_width=True)
 
 elif st.session_state.current_portfolio and st.session_state.portfolios[st.session_state.current_portfolio]:
+    # ... (rest of the code remains the same)
     # Fetch stock data
     end_date = datetime.now()
     start_date = end_date - timedelta(days=365)
