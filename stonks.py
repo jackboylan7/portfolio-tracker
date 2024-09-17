@@ -215,7 +215,10 @@ if st.session_state.current_portfolio == "All":
         })
     
     summary_df = pd.DataFrame(summary_data)
+if 'Portfolio' in summary_df.columns:
     summary_df = summary_df.set_index('Portfolio')
+else:
+    st.warning("No portfolios found. Please create a portfolio and add stocks to it.")
     st.table(summary_df)
 
     # Create a line chart comparing all portfolio performances with S&P 500
