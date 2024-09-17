@@ -1,2 +1,5 @@
 # portfolio-tracker
-Custom portfolio manager with prediction capabilities and live news updates.
+
+# Try it out!
+
+https://investmentswithbezz.streamlit.app/
