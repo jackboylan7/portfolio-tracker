@@ -165,7 +165,9 @@ if st.session_state.current_portfolio == "All":
             "Total Cost": f"${performance['total_cost']:,.2f}"
         })
     
-    st.table(pd.DataFrame(summary_data))
+summary_df = pd.DataFrame(summary_data)
+summary_df = summary_df.set_index('Portfolio')
+st.table(summary_df)
     
     # Create a line chart comparing all portfolio performances with S&P 500
     fig = go.Figure()
