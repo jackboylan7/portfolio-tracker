@@ -154,18 +154,25 @@ if st.session_state.current_portfolio == "All":
             'total_return': (portfolio_value - portfolio_cost) / portfolio_cost * 100
         }
     
-    # Display summary metrics for all portfolios
-    st.subheader("Portfolio Summary")
-    summary_data = []
-    for portfolio_name, performance in portfolio_performances.items():
-        summary_data.append({
-            "Portfolio": portfolio_name,
-            "Total Value": f"${performance['total_value']:,.2f}",
-            "Total Return": f"{performance['total_return']:.2f}%",
-            "Total Cost": f"${performance['total_cost']:,.2f}"
-        })
+# Display summary metrics for all portfolios
+st.subheader("Portfolio Summary")
+summary_data = []
+for portfolio_name, performance in portfolio_performances.items():
+    summary_data.append({
+        "Portfolio": portfolio_name,
+        "Total Value": f"${performance['total_value']:,.2f}",
+        "Total Return": f"{performance['total_return']:.2f}%",
+        "Total Cost": f"${performance['total_cost']:,.2f}"
+    })
+
+if summary_data:
+    summary_df = pd.DataFrame(summary_data)
+    if "Portfolio" in summary_df.columns:
+        summary_df = summary_df.set_index("Portfolio")
+    st.table(summary_df)
+else:
+    st.info("No portfolio data available.")
     
-    st.table(pd.DataFrame(summary_data))
     
     # Create a line chart comparing all portfolio performances with S&P 500
     fig = go.Figure()

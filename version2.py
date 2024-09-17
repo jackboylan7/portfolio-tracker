@@ -165,7 +165,7 @@ if st.session_state.current_portfolio == "All":
             "Total Cost": f"${performance['total_cost']:,.2f}"
         })
     
-    st.table(pd.DataFrame(summary_data))
+    st.table(pd.DataFrame(summary_data).set_index("Portfolio"))
     
     # Create a line chart comparing all portfolio performances with S&P 500
     fig = go.Figure()
@@ -304,4 +304,70 @@ else:
 # Add a footer
 st.markdown("---")
 st.markdown("© 2024 BEZZ Advanced Multi-Portfolio Stock Tracker")
-                              
+                            
+import streamlit as st
+import yfinance as yf
+import pandas as pd
+import plotly.graph_objects as go
+import plotly.express as px
+from plotly.subplots import make_subplots
+from datetime import datetime, timedelta
+from sklearn.linear_model import LinearRegression
+import numpy as np
+
+# ... (keep all the existing imports and setup code)
+
+# Add this new function to get top movers
+@st.cache_data(ttl=3600)  # Cache for 1 hour
+def get_top_movers():
+    # List of S&P 500 stocks (you might want to update this list periodically)
+    sp500_list = [
+        "AAPL", "MSFT", "AMZN", "GOOGL", "FB", "TSLA", "BRK-B", "JNJ", "JPM", "V",
+        "PG", "UNH", "HD", "MA", "NVDA", "DIS", "BAC", "ADBE", "CMCSA", "XOM",
+        "VZ", "NFLX", "INTC", "PFE", "T", "MRK", "PEP", "KO", "WMT", "CRM"
+    ]  # This is a subset, you might want to use a more complete and up-to-date list
+
+    data = yf.download(sp500_list, period="1d")['Close']
+    returns = data.pct_change().iloc[-1].sort_values(ascending=False)
+    top_gainers = returns.head(5)
+    top_losers = returns.tail(5)
+    
+    top_movers = pd.concat([top_gainers, top_losers])
+    top_movers = top_movers.reset_index()
+    top_movers.columns = ['Symbol', 'Return']
+    top_movers['Return'] = top_movers['Return'] * 100  # Convert to percentage
+    
+    return top_movers
+
+# ... (keep all the existing code up to the main content section)
+
+# Main content
+if st.session_state.current_portfolio == "All":
+    st.subheader("All Portfolios Overview")
+    
+    # ... (keep existing code for portfolio overview)
+
+    # Add this new section for top movers
+    st.subheader("Top 10 Stock Movers Today")
+    top_movers = get_top_movers()
+    st.table(top_movers.style.format({'Return': '{:.2f}%'}))
+
+elif st.session_state.current_portfolio and st.session_state.portfolios[st.session_state.current_portfolio]:
+    # ... (keep existing code for individual portfolio view)
+
+    # Add this new section for top movers
+    st.subheader("Top 10 Stock Movers Today")
+    top_movers = get_top_movers()
+    st.table(top_movers.style.format({'Return': '{:.2f}%'}))
+
+else:
+    st.info("Create a portfolio and add stocks to get started!")
+
+    # Even if no portfolio is created, show the top movers
+    st.subheader("Top 10 Stock Movers Today")
+    top_movers = get_top_movers()
+    st.table(top_movers.style.format({'Return': '{:.2f}%'}))
+
+# Add a footer
+st.markdown("---")
+st.markdown("© 2024 BEZZ Advanced Multi-Portfolio Stock Tracker")

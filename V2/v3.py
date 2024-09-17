@@ -114,7 +114,7 @@ if st.session_state.current_portfolio and st.session_state.current_portfolio != 
         col3.write(f"${details['purchase_price']:.2f}")
         if col4.button("Remove", key=f"remove_{stock}"):
             del st.session_state.portfolios[st.session_state.current_portfolio][stock]
-            st.experimental_rerun()
+        st.rerun()
 
 # Main content
 if st.session_state.current_portfolio == "All":
@@ -165,8 +165,44 @@ if st.session_state.current_portfolio == "All":
             "Total Cost": f"${performance['total_cost']:,.2f}"
         })
     
-    st.table(pd.DataFrame(summary_data))
+    # Display summary metrics for all portfolios
+st.subheader("Portfolio Summary")
+if summary_data:
+    df = pd.DataFrame(summary_data)
+    if 'Portfolio' in df.columns:
+        st.table(df.set_index("Portfolio"))
+    else:
+        st.error("Portfolio column not found in summary data.")
+        st.write(df)  # Display the dataframe without setting index
+else:
+    st.info("No portfolio data available. Add stocks to your portfolios to see the summary.")
+    if summary_data:
+    df = pd.DataFrame(summary_data)
+    if 'Portfolio' in df.columns:
+        st.table(df.set_index("Portfolio"))
+    else:
+        st.error("Portfolio column not found in summary data.")
+else:
+    st.info("No portfolio data available. Add stocks to your portfolios to see the summary.")
+st.subheader("Portfolio Summary")
+if portfolio_performances:
+    summary_data = []
+    for portfolio_name, performance in portfolio_performances.items():
+        summary_data.append({
+            "Portfolio": portfolio_name,
+            "Total Value": f"${performance['total_value']:,.2f}",
+            "Total Return": f"{performance['total_return']:.2f}%",
+            "Total Cost": f"${performance['total_cost']:,.2f}"
+        })
     
+    if summary_data:
+        st.table(pd.DataFrame(summary_data).set_index("Portfolio"))
+    else:
+        st.info("No portfolio data available. Add stocks to your portfolios to see the summary.")
+else:
+    st.info("No portfolios with stocks found. Create a portfolio and add stocks to see the summary.")
+
+# Continue with the rest of the code...
     # Create a line chart comparing all portfolio performances with S&P 500
     fig = go.Figure()
     for portfolio_name, performance in portfolio_performances.items():
@@ -304,4 +340,70 @@ else:
 # Add a footer
 st.markdown("---")
 st.markdown("© 2024 BEZZ Advanced Multi-Portfolio Stock Tracker")
-                              
+                            
+import streamlit as st
+import yfinance as yf
+import pandas as pd
+import plotly.graph_objects as go
+import plotly.express as px
+from plotly.subplots import make_subplots
+from datetime import datetime, timedelta
+from sklearn.linear_model import LinearRegression
+import numpy as np
+
+# ... (keep all the existing imports and setup code)
+
+# Add this new function to get top movers
+@st.cache_data(ttl=3600)  # Cache for 1 hour
+def get_top_movers():
+    # List of S&P 500 stocks (you might want to update this list periodically)
+    sp500_list = [
+        "AAPL", "MSFT", "AMZN", "GOOGL", "FB", "TSLA", "BRK-B", "JNJ", "JPM", "V",
+        "PG", "UNH", "HD", "MA", "NVDA", "DIS", "BAC", "ADBE", "CMCSA", "XOM",
+        "VZ", "NFLX", "INTC", "PFE", "T", "MRK", "PEP", "KO", "WMT", "CRM"
+    ]  # This is a subset, you might want to use a more complete and up-to-date list
+
+    data = yf.download(sp500_list, period="1d")['Close']
+    returns = data.pct_change().iloc[-1].sort_values(ascending=False)
+    top_gainers = returns.head(5)
+    top_losers = returns.tail(5)
+    
+    top_movers = pd.concat([top_gainers, top_losers])
+    top_movers = top_movers.reset_index()
+    top_movers.columns = ['Symbol', 'Return']
+    top_movers['Return'] = top_movers['Return'] * 100  # Convert to percentage
+    
+    return top_movers
+
+# ... (keep all the existing code up to the main content section)
+
+# Main content
+if st.session_state.current_portfolio == "All":
+    st.subheader("All Portfolios Overview")
+    
+    # ... (keep existing code for portfolio overview)
+
+    # Add this new section for top movers
+    st.subheader("Top 10 Stock Movers Today")
+    top_movers = get_top_movers()
+    st.table(top_movers.style.format({'Return': '{:.2f}%'}))
+
+elif st.session_state.current_portfolio and st.session_state.portfolios[st.session_state.current_portfolio]:
+    # ... (keep existing code for individual portfolio view)
+
+    # Add this new section for top movers
+    st.subheader("Top 10 Stock Movers Today")
+    top_movers = get_top_movers()
+    st.table(top_movers.style.format({'Return': '{:.2f}%'}))
+
+else:
+    st.info("Create a portfolio and add stocks to get started!")
+
+    # Even if no portfolio is created, show the top movers
+    st.subheader("Top 10 Stock Movers Today")
+    top_movers = get_top_movers()
+    st.table(top_movers.style.format({'Return': '{:.2f}%'}))
+
+# Add a footer
+st.markdown("---")
+st.markdown("© 2024 BEZZ Advanced Multi-Portfolio Stock Tracker")
